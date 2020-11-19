@@ -23,6 +23,9 @@
 # **Synchronized 相关问题**
 
 1.  Synchronized 用过吗，其原理是什么？
+<p><strong>Synchronized</strong>关键字是由JVM实现的一种实现互斥同步的一种方式，可以保证线程安全，反编译出带<strong>Synchronized</strong>程序块的字节码后，可以发现被<strong>Synchronized</strong>修饰的程序块，前后分别有<strong>monitorenter</strong>和<strong>monitorexit</strong>这两个字节码指令，然后当虚拟机执行到<strong>monitorenter</strong>这个指令时，会先尝试获取对象的锁，本质上来说，Synchronized其实是通过在对象头上设置标记，以此达到获取锁和释放锁的目的，所以讲白了Synchronized关键字其实不是锁，可以把它想象成一个动词—加锁，所以使用了Synchronized关键字就会做加锁的操作。如果这时对象没有被锁定，或者当前的线程已经获得了这个对象的锁，那么锁的计数器就会+1，而当执行到<strong>monitorexit</strong>这个指令时，锁计数器就会-1，直到减到0，这个锁也就被释放了。所以这时那些因为获取锁对象失败，而进入阻塞状态的线程们，就可以去竞争这把锁了，如此反复。</p>
+
+
 
 2.  你刚才提到获取对象的锁，这个“锁”到底是什么？如何确定对象的锁？
 
