@@ -194,12 +194,15 @@ JIT编译器在执行动态编译的时候。若发现前后相邻的synchronize
 # **可重入锁 ReentrantLock 及其他显式锁相关问题**
 
 1.  跟 Synchronized 相比，可重入锁 ReentrantLock 其实现原理有什么不同？
+https://blog.csdn.net/qq_41307491/article/details/92440039
 
 2.  那么请谈谈 AQS 框架是怎么回事儿？
+https://blog.csdn.net/qq_29328443/article/details/108109773
 
 3.  请尽可能详尽地对比下 Synchronized 和 ReentrantLock 的异同。
 
 4.  ReentrantLock 是如何实现可重入性的？
+https://www.cnblogs.com/takumicx/p/9338983.html
 
 5.  除了 ReetrantLock，你还接触过 JUC 中的哪些并发工具？
 
