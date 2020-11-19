@@ -34,116 +34,160 @@
 <p>可重入性是锁的一个基本要求，是为了解决自己锁死自己的情况。<br> 一个类中的同步方法调用另一个同步方法，假如 Synchronized 不支持重入，进入 method2 方法时当前线程获得锁，method2 方法里面执行 method1 时当前线程又要去尝试获取锁，对 Synchronized 来说，可重入性是显而易见的，刚才提到，在执行 monitorenter 指令时，如果这个对象没有锁定，或者当前线程已经拥这时如果不支持重入，它就要等释放，把自己阻塞，导致自己锁死自己。&nbsp; &nbsp; 有了这个对象的锁（而不是已拥有了锁则不能继续获取），就把锁的计数器 +1，其实本质上就通过这种方式实现了可重入性。</p>
 
 4.  JVM 对 Java 的原生锁做了哪些优化？
-<code class="language-yaml"><span class="hljs-string">java中锁的优化</span> <span class="hljs-string">--</span> <span class="hljs-string">JVM对synchronized的优化</span>
+java中锁的优化 -- JVM对synchronized的优化
 
-	
-<span class="hljs-number">1</span><span class="hljs-string">）锁消除</span>
-	<span class="hljs-string">概念：JVM在JIT编译(即时编译)时，通过对运行上下文的扫描，去除掉那些不可能发生共享资源竞争的锁，从而节省了线程请求这些锁的时间。</span>
+ 
+1）锁消除
+ 概念：JVM在JIT编译(即时编译)时，通过对运行上下文的扫描，去除掉那些不可能发生共享资源竞争的锁，从而节省了线程请求这些锁的时间。
 
-	<span class="hljs-string">举例：</span>
-		<span class="hljs-string">StringBuffer的append方法是一个同步方法，如果StringBuffer类型的变量是一个局部变量，则该变量就不会被其它线程所使用，即对局部变量的操作是不会发生线程不安全的问题。</span>
-		<span class="hljs-string">在这种情景下，JVM会在JIT编译时自动将append方法上的锁去掉。</span>
-	
+ 举例：
+  StringBuffer的append方法是一个同步方法，如果StringBuffer类型的变量是一个局部变量，则该变量就不会被其它线程所使用，即对局部变量的操作是不会发生线程不安全的问题。
+  在这种情景下，JVM会在JIT编译时自动将append方法上的锁去掉。
+ 
 
-<span class="hljs-number">2</span><span class="hljs-string">）锁粗化</span>
-	<span class="hljs-string">概念：将多个连续的加锁、解锁操作连接在一起，扩展成一个范围更大的锁，即将加锁的粒度放大。</span>
-	
-	<span class="hljs-string">举例：在for循环里的加锁/解锁操作，一般需要放到for循环外。</span>
+2）锁粗化
+ 概念：将多个连续的加锁、解锁操作连接在一起，扩展成一个范围更大的锁，即将加锁的粒度放大。
+ 
+ 举例：在for循环里的加锁/解锁操作，一般需要放到for循环外。
 
 
-<span class="hljs-number">3</span><span class="hljs-string">）使用偏向锁和轻量级锁</span>
+3）使用偏向锁和轻量级锁
 
-	<span class="hljs-string">说明：</span>
-		<span class="hljs-number">1</span><span class="hljs-string">)java6为了减少获取锁和释放锁带来的性能消耗，引入了偏向锁和轻量级锁。</span>
-		<span class="hljs-number">2</span><span class="hljs-string">)锁一共有4种状态，级别从低到高依次是：无锁状态、偏向锁、轻量级锁、重量级锁。</span>
-		<span class="hljs-number">3</span><span class="hljs-string">)锁的状态会随着竞争情况逐渐升级，并且只可以升级而不能降级。</span>
-		
-	<span class="hljs-string">【偏向锁】</span>
-
-		<span class="hljs-number">1</span><span class="hljs-string">)背景：大多数情况下，锁不仅不存在多线程竞争，而且总是由同一线程多次获得，为了让线程获得锁的代价更低而引入了偏向锁。</span>
-		
-		<span class="hljs-number">2</span><span class="hljs-string">)概念：核心思想就是锁会偏向第一个获取它的线程，如果在接下来的执行过程中没有其它的线程获取该锁，则持有偏向锁的线程永远不需要同步。</span>
-		
-		<span class="hljs-number">3</span><span class="hljs-string">)目的：偏向锁实际上是一种优化锁，其目的是为了减少数据在无竞争情况下的性能损耗。</span>
-		
-		<span class="hljs-number">4</span><span class="hljs-string">)原理：</span>
-			<span class="hljs-number">1</span><span class="hljs-string">&gt;当一个线程访问同步块并获取锁时，会在对象头和栈帧中的锁记录里存储锁偏向的线程ID。</span>
-			<span class="hljs-number">2</span><span class="hljs-string">&gt;以后该线程在进入和退出同步块时就不需要进行CAS操作来加锁和解锁，只需简单地判断一下对象头的Mark</span> <span class="hljs-string">Word里是否存储着指向当前线程的偏向锁。</span>
-		
-		<span class="hljs-number">5</span><span class="hljs-string">)偏向锁的获取：</span>
-			<span class="hljs-number">1</span><span class="hljs-string">&gt;访问Mark</span> <span class="hljs-string">Word中偏向锁的标识位是否为1，如果是1，则确定为偏向锁。</span>
-				<span class="hljs-string">说明：</span>
-					[<span class="hljs-number">1</span>]<span class="hljs-string">如果偏向锁的标识位为0，说明此时是处于无锁状态，则当前线程通过CAS操作尝试获取偏向锁，如果获取锁成功，则将Mark</span> <span class="hljs-string">Word中的偏向线程ID设置为当前线程ID；并且将偏向标识位设为1。</span>
-					[<span class="hljs-number">2</span>]<span class="hljs-string">如果偏向锁的标识位不为1，也不为0(此时偏向锁的标识位没有值)，说明发生了竞争，偏向锁已经膨胀为轻量级锁，这时使用CAS操作尝试获得锁。</span>
-					
-			<span class="hljs-number">2</span><span class="hljs-string">&gt;如果是偏向锁，则判断Mark</span> <span class="hljs-string">Word中的偏向线程ID是否指向当前线程，如果偏向线程ID指向当前线程，则表明当前线程已经获取到了锁；</span>
-			
-			<span class="hljs-number">3</span><span class="hljs-string">&gt;如果偏向线程ID并未指向当前线程，则通过CAS操作尝试获取偏向锁，如果获取锁成功，则将Mark</span> <span class="hljs-string">Word中的偏向线程ID设置为当前线程ID；</span>
-			
-			<span class="hljs-number">4</span><span class="hljs-string">&gt;如果CAS获取偏向锁失败，则表示有竞争。当到达全局安全点时(在这个时间点上没有正在执行的字节码)，获得偏向锁的线程被挂起，偏向锁升级为轻量级锁，然后被阻塞在安全点的线程继续往下执行同步代码。</span>
-		
-        <span class="hljs-number">6</span><span class="hljs-string">)偏向锁的释放：</span>  
-            <span class="hljs-number">1</span><span class="hljs-string">&gt;当其它的线程尝试获取偏向锁时，持有偏向锁的线程才会释放偏向锁。</span>  
-            <span class="hljs-number">2</span><span class="hljs-string">&gt;释放偏向锁需要等待全局安全点(在这个时间点上没有正在执行的字节码)。</span> 
-			<span class="hljs-number">3</span><span class="hljs-string">&gt;过程：</span>
-				<span class="hljs-string">首先暂停拥有偏向锁的线程，然后检查持有偏向锁的线程是否活着，如果线程不处于活动状态，则将对象头设置成无锁状态，</span>
-				<span class="hljs-string">如果线程还活着，说明此时发生了竞争，则偏向锁升级为轻量级锁，然后刚刚被暂停的线程会继续往下执行同步代码。</span>
-		
-		<span class="hljs-number">7</span><span class="hljs-string">)优点：加锁和解锁不需要额外的消耗，和执行非同步方法相比仅存在纳秒级的差距</span>
-
-		<span class="hljs-number">8</span><span class="hljs-string">)缺点：如果线程间存在锁竞争，锁撤销会带来额外的消耗。</span>
-		
-		<span class="hljs-number">9</span><span class="hljs-string">)说明：</span>
-			<span class="hljs-number">1</span><span class="hljs-string">)偏向锁默认在应用程序启动几秒钟之后才激活。</span>
-			<span class="hljs-number">2</span><span class="hljs-string">)可以通过设置</span> <span class="hljs-string">-XX:BiasedLockingStartupDelay=0</span> <span class="hljs-string">来关闭延迟。</span>
-			<span class="hljs-number">3</span><span class="hljs-string">)可以通过设置</span> <span class="hljs-string">-XX:-UseBiasedLocking=false</span> <span class="hljs-string">来关闭偏向锁，程序默认会进入轻量级锁状态。(如果应用程序里的锁大多情况下处于竞争状态，则应该将偏向锁关闭)</span>
-		
-
-    <span class="hljs-string">【轻量级锁】</span>  
-		<span class="hljs-number">1</span><span class="hljs-string">)原理：</span>
-			<span class="hljs-number">1</span><span class="hljs-string">&gt;当使用轻量级锁(锁标识位为00)时，线程在执行同步块之前，JVM会先在当前线程的栈桢中创建用于存储锁记录的空间，并将对象头中的Mark</span> <span class="hljs-string">Word复制到锁记录中(注:锁记录中的标识字段称为Displaced</span> <span class="hljs-string">Mark</span> <span class="hljs-string">Word)。</span>
-			
-			<span class="hljs-number">2</span><span class="hljs-string">&gt;将对象头中的MarkWord复制到栈桢中的锁记录中之后，虚拟机将尝试使用CAS将对象头中Mark</span> <span class="hljs-string">Word替换为指向该线程虚拟机栈中锁记录的指针，此时如果没有线程占有锁或者没有线程竞争锁，则当前线程成功获取到锁，然后执行同步块中的代码。</span>
-			
-			<span class="hljs-number">3</span><span class="hljs-string">&gt;如果在获取到锁的线程执行同步代码的过程中，另一个线程也完成了栈桢中锁记录的创建，并且已经将对象头中的MarkWord复制到了自己的锁记录中，然后尝试使用CAS将对象头中的MarkWord修改为指向自己的锁记录的指针，但是由于之前获取到锁的线程已经将对象头中的MarkWord修改过了(并且现在还在执行同步体中的代码,即仍然持有着锁)，所以此时对象头中的MarkWord与当前线程锁记录中MarkWord的值不同，导致CAS操作失败，然后该线程就会不停地循环使用CAS操作试图将对象头中的MarkWord替换为自己锁记录中MarkWord的值，(当循环次数或循环时间达到上限时停止循环)如果在循环结束之前CAS操作成功，那么该线程就可以成功获取到锁，如果循环结束之后依然获取不到锁，则锁获取失败，对象头中的MarkWord会被修改为指向重量级锁的指针，然后这个获取锁失败的线程就会被挂起，阻塞了。</span>
-			
-			<span class="hljs-number">4</span><span class="hljs-string">&gt;当持有锁的那个线程执行完同步体之后，使用CAS操作将对象头中的MarkWord还原为最初的状态时(将对象头中指向锁记录的指针替换为Displaced</span> <span class="hljs-string">Mark</span> <span class="hljs-string">Word</span> <span class="hljs-string">)，发现MarkWord已被修改为指向重量级锁的指针，因此CAS操作失败，该线程会释放锁并唤起阻塞等待的线程，开始新一轮夺锁之争，而此时，轻量级锁已经膨胀为重量级锁，所有竞争失败的线程都会阻塞，而不是自旋。</span>
+ 说明：
+  1)java6为了减少获取锁和释放锁带来的性能消耗，引入了偏向锁和轻量级锁。
+  2)锁一共有4种状态，级别从低到高依次是：无锁状态、偏向锁、轻量级锁、重量级锁。
+  3)锁的状态会随着竞争情况逐渐升级，并且只可以升级而不能降级。
   
-            <span class="hljs-string">自旋锁：</span>  
-                <span class="hljs-number">1</span><span class="hljs-string">)所谓自旋锁，就是让没有获得锁的进程自己运行一段时间自循环(默认开启)，但是不挂起线程。</span>  
-                <span class="hljs-number">2</span><span class="hljs-string">)自旋的代价就是该线程会一直占用处理器如果锁占用的时间很短，自旋等待的效果很好，反之，自旋锁会消耗大量处理器资源。</span>  
-                <span class="hljs-number">3</span><span class="hljs-string">)因此，自旋的等待时间必须有一定限度，超过限度还没有获得锁，就要挂起线程。</span>  
+ 【偏向锁】
 
-        <span class="hljs-string">优点：在没有多线程竞争的前提下，减少传统的重量级锁带来的性能损耗。</span>  
-          
-        <span class="hljs-string">缺点：竞争的线程如果始终得不到锁，自旋会消耗cpu。</span>  
+  1)背景：大多数情况下，锁不仅不存在多线程竞争，而且总是由同一线程多次获得，为了让线程获得锁的代价更低而引入了偏向锁。
   
-        <span class="hljs-string">应用：追求响应时间，同步块执行速度非常快。</span>  
-          
-          
-    <span class="hljs-string">【重量级锁】</span>  
-	
-		<span class="hljs-string">说明：</span>
-			<span class="hljs-number">1</span><span class="hljs-string">)java6之前的synchronized属于重量级锁，效率低下，因为monitor是依赖操作系统的Mutex</span> <span class="hljs-string">Lock(互斥量)来实现的。</span>
-			<span class="hljs-number">2</span><span class="hljs-string">)多线程竞争锁时，会引起线程的上下文切换(即在cpu分配的时间片还没有用完的情况下进行了上下文切换)。</span>
-			<span class="hljs-number">3</span><span class="hljs-string">)操作系统实现线程的上下文切换需要从用户态转换到核心态，这个状态之间的转换需要相对较长的时间，时间成本相对较高。</span>
-			<span class="hljs-number">4</span><span class="hljs-string">)在互斥状态下，没有得到锁的线程会被挂起阻塞，而挂起线程和恢复线程的操作都需要从用户态转入内核态中完成。</span>
-	
-		<span class="hljs-string">优点：线程竞争不使用自旋，不会消耗cpu。</span>
-		
-		<span class="hljs-string">缺点：线程阻塞，响应时间缓慢。</span>
-		
-		<span class="hljs-string">应用：追求吞吐量，同步块执行速度较长</span>
+  2)概念：核心思想就是锁会偏向第一个获取它的线程，如果在接下来的执行过程中没有其它的线程获取该锁，则持有偏向锁的线程永远不需要同步。
+  
+  3)目的：偏向锁实际上是一种优化锁，其目的是为了减少数据在无竞争情况下的性能损耗。
+  
+  4)原理：
+   1>当一个线程访问同步块并获取锁时，会在对象头和栈帧中的锁记录里存储锁偏向的线程ID。
+   2>以后该线程在进入和退出同步块时就不需要进行CAS操作来加锁和解锁，只需简单地判断一下对象头的Mark Word里是否存储着指向当前线程的偏向锁。
+  
+  5)偏向锁的获取：
+   1>访问Mark Word中偏向锁的标识位是否为1，如果是1，则确定为偏向锁。
+    说明：
+     [1]如果偏向锁的标识位为0，说明此时是处于无锁状态，则当前线程通过CAS操作尝试获取偏向锁，如果获取锁成功，则将Mark Word中的偏向线程ID设置为当前线程ID；并且将偏向标识位设为1。
+     [2]如果偏向锁的标识位不为1，也不为0(此时偏向锁的标识位没有值)，说明发生了竞争，偏向锁已经膨胀为轻量级锁，这时使用CAS操作尝试获得锁。
+     
+   2>如果是偏向锁，则判断Mark Word中的偏向线程ID是否指向当前线程，如果偏向线程ID指向当前线程，则表明当前线程已经获取到了锁；
+   
+   3>如果偏向线程ID并未指向当前线程，则通过CAS操作尝试获取偏向锁，如果获取锁成功，则将Mark Word中的偏向线程ID设置为当前线程ID；
+   
+   4>如果CAS获取偏向锁失败，则表示有竞争。当到达全局安全点时(在这个时间点上没有正在执行的字节码)，获得偏向锁的线程被挂起，偏向锁升级为轻量级锁，然后被阻塞在安全点的线程继续往下执行同步代码。
+  
+        6)偏向锁的释放：  
+            1>当其它的线程尝试获取偏向锁时，持有偏向锁的线程才会释放偏向锁。  
+            2>释放偏向锁需要等待全局安全点(在这个时间点上没有正在执行的字节码)。 
+   3>过程：
+    首先暂停拥有偏向锁的线程，然后检查持有偏向锁的线程是否活着，如果线程不处于活动状态，则将对象头设置成无锁状态，
+    如果线程还活着，说明此时发生了竞争，则偏向锁升级为轻量级锁，然后刚刚被暂停的线程会继续往下执行同步代码。
+  
+  7)优点：加锁和解锁不需要额外的消耗，和执行非同步方法相比仅存在纳秒级的差距
 
-	
-	
-</code>
+  8)缺点：如果线程间存在锁竞争，锁撤销会带来额外的消耗。
+  
+  9)说明：
+   1)偏向锁默认在应用程序启动几秒钟之后才激活。
+   2)可以通过设置 -XX:BiasedLockingStartupDelay=0 来关闭延迟。
+   3)可以通过设置 -XX:-UseBiasedLocking=false 来关闭偏向锁，程序默认会进入轻量级锁状态。(如果应用程序里的锁大多情况下处于竞争状态，则应该将偏向锁关闭)
+  
+
+    【轻量级锁】  
+  1)原理：
+   1>当使用轻量级锁(锁标识位为00)时，线程在执行同步块之前，JVM会先在当前线程的栈桢中创建用于存储锁记录的空间，并将对象头中的Mark Word复制到锁记录中(注:锁记录中的标识字段称为Displaced Mark Word)。
+   
+   2>将对象头中的MarkWord复制到栈桢中的锁记录中之后，虚拟机将尝试使用CAS将对象头中Mark Word替换为指向该线程虚拟机栈中锁记录的指针，此时如果没有线程占有锁或者没有线程竞争锁，则当前线程成功获取到锁，然后执行同步块中的代码。
+   
+   3>如果在获取到锁的线程执行同步代码的过程中，另一个线程也完成了栈桢中锁记录的创建，并且已经将对象头中的MarkWord复制到了自己的锁记录中，然后尝试使用CAS将对象头中的MarkWord修改为指向自己的锁记录的指针，但是由于之前获取到锁的线程已经将对象头中的MarkWord修改过了(并且现在还在执行同步体中的代码,即仍然持有着锁)，所以此时对象头中的MarkWord与当前线程锁记录中MarkWord的值不同，导致CAS操作失败，然后该线程就会不停地循环使用CAS操作试图将对象头中的MarkWord替换为自己锁记录中MarkWord的值，(当循环次数或循环时间达到上限时停止循环)如果在循环结束之前CAS操作成功，那么该线程就可以成功获取到锁，如果循环结束之后依然获取不到锁，则锁获取失败，对象头中的MarkWord会被修改为指向重量级锁的指针，然后这个获取锁失败的线程就会被挂起，阻塞了。
+   
+   4>当持有锁的那个线程执行完同步体之后，使用CAS操作将对象头中的MarkWord还原为最初的状态时(将对象头中指向锁记录的指针替换为Displaced Mark Word )，发现MarkWord已被修改为指向重量级锁的指针，因此CAS操作失败，该线程会释放锁并唤起阻塞等待的线程，开始新一轮夺锁之争，而此时，轻量级锁已经膨胀为重量级锁，所有竞争失败的线程都会阻塞，而不是自旋。
+  
+            自旋锁：  
+                1)所谓自旋锁，就是让没有获得锁的进程自己运行一段时间自循环(默认开启)，但是不挂起线程。  
+                2)自旋的代价就是该线程会一直占用处理器如果锁占用的时间很短，自旋等待的效果很好，反之，自旋锁会消耗大量处理器资源。  
+                3)因此，自旋的等待时间必须有一定限度，超过限度还没有获得锁，就要挂起线程。  
+
+        优点：在没有多线程竞争的前提下，减少传统的重量级锁带来的性能损耗。  
+          
+        缺点：竞争的线程如果始终得不到锁，自旋会消耗cpu。  
+  
+        应用：追求响应时间，同步块执行速度非常快。  
+          
+          
+    【重量级锁】  
+ 
+  说明：
+   1)java6之前的synchronized属于重量级锁，效率低下，因为monitor是依赖操作系统的Mutex Lock(互斥量)来实现的。
+   2)多线程竞争锁时，会引起线程的上下文切换(即在cpu分配的时间片还没有用完的情况下进行了上下文切换)。
+   3)操作系统实现线程的上下文切换需要从用户态转换到核心态，这个状态之间的转换需要相对较长的时间，时间成本相对较高。
+   4)在互斥状态下，没有得到锁的线程会被挂起阻塞，而挂起线程和恢复线程的操作都需要从用户态转入内核态中完成。
+ 
+  优点：线程竞争不使用自旋，不会消耗cpu。
+  
+  缺点：线程阻塞，响应时间缓慢。
+  
+  应用：追求吞吐量，同步块执行速度较长
+
+ 
 
 5.  为什么说 Synchronized 是非公平锁？
+非公平主要表现在获取锁的行为上，并非是按照申请锁的时间前后给等待线程分配锁的，每当锁被释放后，任何一个线程都有机会竞争到锁，这样做的目的是为了提高执行性能，缺点是可能会产生线程饥饿现象（即某个线程一直非公平主要表现在获取锁的行为上，并非是按照申请锁的时间前后给等待线程分配锁的，每当锁被释放后，任何一个线程都有机会竞争到锁，这样做的目的是为了提高执行性能，缺点是可能会产生线程饥饿现象（即某个线程长时间未竞争到锁）。
 
 6.  什么是锁消除和锁粗化？
+锁消除：
+public class MySynchronizedTest07 {
 
-7.  为什么说 Synchronized 是一个悲观锁？乐观锁的实现原理又是什么？什么是
+    public void method() {
+        Object object = new Object();
+        synchronized (object) {
+            System.out.println("hello  world");
+        }
+    }
+}
+上述代码我们可知将object变成了局部变量，在方法中，方法的的局部变量时线程独立的，并发的场景每个线程都有各自的object对象，这个时候的锁就无意义的。
+我们在编译上述代码的时候其实也发现了monitorenter和monitorexit，在字节码层面看上去还有有锁的获取和释放。
+这个时候JIT编译器可以在动态编译同步代码的时候，使用一种叫做逃逸分析的技术（后续学习jvm的时候会涉及到），来通过该技术判断程序中使用的锁对象是否只被一个线程所使用。而没有别的线程进行竞争。当这种情况的下，那么JIT编译器在编译（将字节码编程机器码）这个同步代码时就不会生成synchronized关键字所标识锁的申请和释放的机器码。从而消除锁的使用流程。这就是锁消除的原理和案例。
+
+锁粗化
+直接上代码：
+
+/**
+ * 描述:  锁粗化
+ */
+public class MySynchronizedTest08 {
+
+    private Object object = new Object();
+
+
+    public void method() {
+        synchronized (object) {
+            System.out.println("hello");
+        }
+
+        synchronized (object) {
+            System.out.println("world");
+        }
+
+        synchronized (object) {
+            System.out.println("!");
+        }
+    }
+}
+代码很简单，在这里就不用做代码解释了
+我们直接看JIt编译器如何优化上述代码的。
+JIT编译器在执行动态编译的时候。若发现前后相邻的synchronized块使用的是同一个锁对象，那么它就会把这几个synchronized块合并成一个较大的同步快，这样做的好处在于线程执行这些代码的时候，就无需频繁申请和释放锁了，从而达到申请与释放一次就可以执行全部的同步代码块，从而提高了性能。
+
+7.  为什么说 Synchronized 是一个悲观锁？乐观锁的实现原理又是什么？什么是cas?
+悲观锁：不管是否会产生竞争，任何的数据操作都必须要加锁、用户态核心态转 换、维护锁计数器和检查是否有被阻塞的线程需要被唤醒等操作。
+
+随着硬件指令集的发展，我们可以使用基于冲突检测的乐观并发策略。 先进行操作，如果没有其他线程征用数据，那操作就成功了; 如果共享数据有征用，产生了冲突，那就再进行其他的补偿措施。这种 乐观的并发策略的许多实现不需要线程挂起，所以被称为非阻塞同步。 乐观锁的核心算法是 CAS(Compareand Swap，比较并交换)，它涉 及到三个操作数:内存值、预期值、新值。当且仅当预期值和内存值相 等时才将内存值修改为新值。 这样处理的逻辑是，首先检查某块内存的值是否跟之前我读取时的一 样，如不一样则表示期间此内存值已经被别的线程更改过，舍弃本次操 作，否则说明期间没有其他线程对此内存值操作，可以把新值设置给此 块内存。
 
 8.  乐观锁一定就是好的吗？
 
